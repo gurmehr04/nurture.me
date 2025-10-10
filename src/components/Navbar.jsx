@@ -3,10 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { styles } from '../style';
 import { UserContext } from '../context/UserContext'; // Import UserContext
 
+
 import menu from '../assets/menu.svg';
 import close from '../assets/close.svg';
 import profile from '../assets/profile-user.png';
 import { navLinks } from '../constants';
+
 
 const Navbar = () => {
     const [active, setActive] = useState('');
@@ -21,7 +23,7 @@ const Navbar = () => {
     };
 
     return (
-        <nav className={`${styles.paddingX} w-full flex items-center py-7 fixed top-0 z-20 bg-[#222222]`}>
+        <nav className={`${styles.paddingX} w-full flex items-center py-7 sticky top-0 z-50 bg-[#222222]`}>
             <div className="w-full flex justify-between items-center max-w-7xl mx-auto">
                 <Link
                     to="/"
@@ -41,14 +43,28 @@ const Navbar = () => {
                     {navLinks.map((link) => (
                         <li
                             key={link.id}
-                            className={`${
-                                active === link.title ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
-                            } text-[20px] font-medium cursor-pointer`}
+                            className={`${active === link.title ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
+                                } text-[20px] font-medium cursor-pointer`}
                             onClick={() => setActive(link.title)}
                         >
                             <Link to={link.path}>{link.title}</Link>
                         </li>
                     ))}
+                    <li
+                        key="predict"
+                        className={`${active === 'Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'} text-[20px] font-medium cursor-pointer`}
+                        onClick={() => setActive('Predict')}
+                    >
+                        <Link to="/predict">Predict</Link>
+                    </li>
+                    <li
+                        key="write-predict"
+                        className={`${active === 'Write & Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
+                            } text-[20px] font-medium cursor-pointer`}
+                        onClick={() => setActive('Write & Predict')}
+                    >
+                        <Link to="/write-predict">Write & Predict</Link>
+                    </li>
 
                     {/* Conditionally show Profile and Logout if user is logged in */}
                     {user ? (
@@ -96,18 +112,16 @@ const Navbar = () => {
                     }}
                 />
                 <div
-                    className={`${
-                        toggle ? 'hidden' : 'flex'
-                    } p-6 black-gradient absolute top-20 right-0 mx-4 my-2 min-w-[140px] z-10 rounded-xl`}
+                    className={`${toggle ? 'hidden' : 'flex'
+                        } p-6 black-gradient absolute top-20 right-0 mx-4 my-2 min-w-[140px] z-10 rounded-xl`}
                 >
                     <ul className="list-none flex sm:flex justify-end items-start flex-col gap-4">
                         {/* Render nav links */}
                         {navLinks.map((link) => (
                             <li
                                 key={link.id}
-                                className={`${
-                                    active === link.title ? 'text-[#ffed2c]' : 'text-[#000000]'
-                                } text-[18px] font-medium cursor-pointer`}
+                                className={`${active === link.title ? 'text-[#ffed2c]' : 'text-[#000000]'
+                                    } text-[18px] font-medium cursor-pointer`}
                                 onClick={() => {
                                     setActive(link.title);
                                     setToggle(!toggle);
@@ -116,6 +130,26 @@ const Navbar = () => {
                                 <Link to={link.path}>{link.title}</Link>
                             </li>
                         ))}
+
+                        <li
+                            key="predict"
+                            className={`${active === 'Predict' ? 'text-[#ffed2c]' : 'text-[#000000]'} text-[18px] font-medium cursor-pointer`}
+                            onClick={() => {
+                                setActive('Predict');
+                                setToggle(false);  // close the drawer after click
+                            }}
+                        >
+                            <Link to="/predict">Predict</Link>
+                        </li>
+                        <li
+                            key="write-predict"
+                            className={`${active === 'Write & Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
+                                } text-[20px] font-medium cursor-pointer`}
+                            onClick={() => setActive('Write & Predict')}
+                        >
+                            <Link to="/write-predict">Write & Predict</Link>
+                        </li>
+
 
                         {/* Conditionally show Profile and Logout if user is logged in */}
                         {user ? (

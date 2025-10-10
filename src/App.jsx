@@ -19,6 +19,7 @@ import EndlessRunner from './components/EndlessRunner';
 import WorkoutWheel from './components/WorkoutWheel';
 import ShooterGame from './components/ShooterGame';
 import MiniGames from './components/MiniGames';
+import MentalHealthCheck from './components/MentalHealthCheck';
 import { UserProvider, UserContext } from "./context/UserContext";
 
 function App() {
@@ -81,6 +82,9 @@ function App() {
         <Navbar />
 
         <Routes>
+
+          <Route path="/predict" element={<MentalHealthCheck />} />
+
           {/* Home page */}
           <Route path="/" element={<Hero />} />
 
