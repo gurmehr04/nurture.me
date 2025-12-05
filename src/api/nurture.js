@@ -36,3 +36,18 @@ export async function predictHabit(vec) {
   if (!r.ok) throw new Error(data?.detail ?? "habit failed");
   return data;
 }
+
+export async function predictTextSentiment(text) {
+  const res = await fetch(`${API}/predict/text-sentiment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) throw new Error(data?.detail ?? "Text sentiment prediction failed");
+
+  // ✅ The backend already sends { label, summary, scores }
+  return data;
+}

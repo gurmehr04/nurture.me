@@ -21,6 +21,7 @@ import ShooterGame from './components/ShooterGame';
 import MiniGames from './components/MiniGames';
 import MentalHealthCheck from './components/MentalHealthCheck';
 import { UserProvider, UserContext } from "./context/UserContext";
+import WritePredictPage from "./pages/WritePredictPage";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -84,6 +85,8 @@ function App() {
         <Routes>
 
           <Route path="/predict" element={<MentalHealthCheck />} />
+          <Route path="/write-predict" element={<WritePredictPage />} />
+
 
           {/* Home page */}
           <Route path="/" element={<Hero />} />
