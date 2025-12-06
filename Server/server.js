@@ -3,6 +3,10 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const bcrypt = require("bcryptjs"); // Import bcryptjs
+require("dotenv").config();
+
+
 
 const app = express();
 const server = http.createServer(app);
@@ -15,8 +19,10 @@ const io = new Server(server, {
 });
 
 // MongoDB connection
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/userdata";
+
 mongoose
-  .connect("mongodb://localhost:27017/userData", {
+  .connect(MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -25,10 +31,15 @@ mongoose
 
 // Define the User Schema
 const userSchema = new mongoose.Schema({
-  username: { type: String, required: true },
+  username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
   password: { type: String, required: true },
+  name: { type: String, required: true },
+  university: { type: String, required: true },
+  course: { type: String, required: true },
+  isAdmin: { type: Boolean, default: false },
+  consent: { type: Boolean, default: false }, // User consent for data usage
 });
 
 // Define the Question Schema
@@ -61,6 +72,22 @@ const profileSchema = new mongoose.Schema({
   mood: { type: String, required: false, default: "Happy" }, // Default mood
   habits: { type: [String], required: false, default: [] },
   suggestions: { type: [String], required: false, default: [] },
+  streak: { type: Number, default: 0 },
+  wins: { type: [String], default: [] },
+  stepGoal: { type: Number, default: 10000 },
+  waterGoal: { type: Number, default: 2500 },
+  sleepGoal: { type: Number, default: 8 },
+  history: {
+    type: [
+      {
+        date: { type: String }, // Format: YYYY-MM-DD
+        steps: { type: Number, default: 0 },
+        water: { type: Number, default: 0 },
+        sleep: { type: Number, default: 0 }
+      }
+    ],
+    default: []
+  }
 });
 
 // Create the Profile model
@@ -96,6 +123,7 @@ io.on("connection", (socket) => {
 
   if (isAdmin) {
     console.log(`Admin connected: ${socket.id}`);
+    socket.emit("active_chats", activeChats);
   } else {
     console.log(`User connected: ${socket.id}`);
 
@@ -140,26 +168,53 @@ io.on("connection", (socket) => {
 app.put("/profile/:username", async (req, res) => {
   try {
     const { username } = req.params;
-    const { name, university, photo, height, weight, mood, habits } = req.body;
+    const { name, university, photo, height, weight, mood, habits, steps, water, sleep, stepGoal, waterGoal, sleepGoal } = req.body;
 
     // Validate mood
     if (mood && !moodSuggestions[mood]) {
       return res.status(400).json({ success: false, message: "Invalid mood" });
     }
 
-    const updatedSuggestions = moodSuggestions[mood] || [];
-    const updatedProfile = await Profile.findOneAndUpdate(
-      { username },
-      {
-        name,
-        university,
-        photo,
-        height,
-        weight,
+    // CHECK CONSENT: Fetch user to verify consent before saving sensitive/mood data
+    const userUser = await User.findOne({ username });
+    if (!userUser) return res.status(404).json({ success: false, message: "User not found" });
+
+    // If user has NOT given consent, we restrict what we save.
+    // We allow basic profile updates (name, photo) but DO NOT update mood/history.
+    let updatePayload = {
+      name,
+      university,
+      photo,
+      height,
+      weight,
+      stepGoal,
+      waterGoal,
+      sleepGoal
+    };
+
+    const hasConsent = userUser.consent === true;
+
+    if (hasConsent) {
+      // ONLY if consent is true, we update mood-related fields
+      updatePayload = {
+        ...updatePayload,
         mood,
         habits,
-        suggestions: updatedSuggestions,
-      },
+        suggestions: moodSuggestions[mood] || [],
+        steps,
+        water,
+        sleep
+      };
+    } else {
+      // If no consent, ensure we don't accidentally overwrite strict fields
+      // Or arguably, we just ignore the mood inputs.
+      // The requirement: "If consent === false, Do NOT store any mood logs"
+      console.log(`[Privacy] Skiping mood storage for ${username} (No Consent)`);
+    }
+
+    const updatedProfile = await Profile.findOneAndUpdate(
+      { username },
+      updatePayload,
       { new: true, upsert: true } // Upsert ensures a new profile is created if it doesn't exist
     );
 
@@ -171,28 +226,40 @@ app.put("/profile/:username", async (req, res) => {
 });
 
 // Improve error handling for GET profile
+// Improve error handling for GET profile and Sync with User Data
 app.get("/profile/:username", async (req, res) => {
   try {
     const { username } = req.params;
 
-    const profile = await Profile.findOne({ username });
+    // Fetch both Profile and User to sync data
+    const userMap = await User.findOne({ username });
+    let profile = await Profile.findOne({ username });
+
+    if (!userMap) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
     if (!profile) {
-      // Create a new profile if it doesn't exist
-      const defaultProfile = new Profile({
+      // Create a new profile if it doesn't exist, using User data
+      profile = new Profile({
         username,
-        name: username, // Default name to username
-        university: "Unknown University",
+        name: userMap.name,
+        university: userMap.university,
         photo: "https://via.placeholder.com/150",
         height: null,
         weight: null,
         mood: "Happy",
         habits: [],
-        suggestions: moodSuggestions["Happy"], // Default to suggestions for "Happy"
+        suggestions: moodSuggestions["Happy"],
       });
-
-      await defaultProfile.save();
-      return res.json({ success: true, profile: defaultProfile });
+      await profile.save();
+    } else {
+      // Sync vital fields from User to Profile (Source of Truth)
+      if (profile.name !== userMap.name || profile.university !== userMap.university) {
+        profile.name = userMap.name;
+        profile.university = userMap.university;
+        await profile.save();
+      }
     }
 
     res.json({ success: true, profile });
@@ -246,36 +313,72 @@ app.post("/seedFAQs", async (req, res) => {
 });
 
 // Register
-app.post("/Register", async (req, res) => {
-  const { username, email, phone, password } = req.body;
+app.post("/register", async (req, res) => {
+  const { username, email, phone, password, name, university, age, course, consent } = req.body;
 
   try {
-    const existingUser = await User.findOne({ email });
+    // Check if username OR email already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
 
     if (existingUser) {
       return res.json("exist");
     }
 
-    const newUser = new User({ username, email, phone, password });
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      username,
+      email,
+      phone,
+      password: hashedPassword,
+      name,
+      university,
+      age,
+      university,
+      age,
+      course,
+      consent: consent === true // Enforce boolean
+    });
     await newUser.save();
     return res.json("nonexist");
   } catch (error) {
+    if (error.code === 11000) {
+      // Duplicate key error (likely username or email if the explicit check failed somehow, or race condition)
+      return res.json("exist");
+    }
     console.error("Error inserting data:", error);
     return res.status(500).json("Error saving user");
   }
 });
 
 // Login
-app.post("/Login", async (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const existingUser = await User.findOne({ username, password });
+    const existingUser = await User.findOne({ username });
 
-    if (existingUser) {
-      return res.json("success");
+    if (!existingUser) {
+      return res.json({ status: "failure" });
+    }
+
+    // Check if password matches (bcrypt)
+    let isMatch = await bcrypt.compare(password, existingUser.password);
+
+    // Legacy Fallback: Check if plain text matches (Lazy Migration)
+    if (!isMatch && existingUser.password === password) {
+      console.log(`Migrating password for user: ${username}`);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      existingUser.password = hashedPassword;
+      await existingUser.save();
+      isMatch = true;
+    }
+
+    if (isMatch) {
+      return res.json({ status: "success", isAdmin: existingUser.isAdmin, consent: existingUser.consent });
     } else {
-      return res.json("failure");
+      return res.json({ status: "failure" });
     }
   } catch (error) {
     console.error("Error during login:", error);
@@ -326,6 +429,36 @@ app.get("/getQuestions", async (req, res) => {
   } catch (error) {
     console.error("Error retrieving questions:", error);
     res.status(500).json({ success: false, message: "Error retrieving questions" });
+  }
+});
+
+// Seed Admin User
+app.post("/seedAdmin", async (req, res) => {
+  const { username, password, email } = req.body;
+  try {
+    const existingAdmin = await User.findOne({ username });
+    if (existingAdmin) return res.status(400).json({ message: "Admin already exists" });
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newAdmin = new User({
+      username,
+      password: hashedPassword,
+      email,
+      phone: "0000000000",
+      name: "Admin",
+      university: "N/A",
+      age: 0,
+      course: "N/A",
+      isAdmin: true,
+    });
+
+    await newAdmin.save();
+    res.json({ success: true, message: "Admin created successfully" });
+  } catch (error) {
+    console.error("Error creating admin:", error);
+    res.status(500).json({ success: false, message: "Error creating admin" });
   }
 });
 

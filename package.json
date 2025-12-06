@@ -13,6 +13,8 @@
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.8",
     "axios": "^1.7.7",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.25",
     "googleapis": "^144.0.0",
     "i": "^0.3.7",
     "mongoose": "^8.8.1",
@@ -21,6 +23,7 @@
     "react-router-dom": "^6.28.0",
     "react-unity-webgl": "^9.6.0",
     "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.4.0",
     "three": "^0.168.0"
   },
   "devDependencies": {

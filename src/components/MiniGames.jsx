@@ -11,9 +11,9 @@ import game3 from '../assets/positiverun.png'
 const MiniGames = () => {
     return (
         <>
-            <section className="mini-games mt-28">
+            <section className="mini-games">
                 {/* First Game Section */}
-                <div className="game flex flex-col md:flex-row gap-20 items-center justify-center md:items-start max-w-screen-xl mx-auto mt-36">
+                <div className="game flex flex-col md:flex-row gap-20 items-center justify-center md:items-start w-full mt-10">
                     <div className="game-sec flex-1">
                         <h2 className="font-black text-black text-[60px] mt-2 leading-tight">Breathing Tiles</h2>
                         <p className="text-gray-700 mb-6 text-center md:text-left text-lg mt-6">

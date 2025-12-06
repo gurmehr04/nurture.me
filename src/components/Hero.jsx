@@ -10,7 +10,10 @@ const Hero = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
-  const username = user?.username || "User";
+  // Handle user as object (from register) or string (from login)
+  const realName = user?.username || user;
+  const isLoggedIn = !!user;
+  const displayName = isLoggedIn ? realName : "User";
 
   return (
     <>
@@ -28,11 +31,11 @@ const Hero = () => {
 
             <div className="py-28 mx-14">
               <h1 className="font-black text-black text-[60px] mt-2 leading-tight">
-                Hi, <span className="text-[#ffde20]">{username}</span>
+                Hi, <span className="text-[#ffde20]">{displayName}</span>
                 <br /> How are you doing today?
               </h1>
-              {/* Show "Get Started" only if the user is not logged in */}
-              {username === "User" && (
+              {/* Show "Get Started" only if NOT logged in */}
+              {!isLoggedIn && (
                 <>
                   <h2 className="text-2xl font-bold text-gray-800 mt-[30px]">
                     Let's Get Started

@@ -13,14 +13,19 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:8080/Login", {
+      const res = await axios.post("http://localhost:8080/login", {
         username,
         password,
       });
 
-      if (res.data === "success") {
-        login({ username }); // Save user to context
-        localStorage.setItem("username", username); // Store username in localStorage
+      if (res.data.status === "success") {
+        const userData = {
+          username: username,
+          isAdmin: res.data.isAdmin || false,
+          consent: res.data.consent || false
+        };
+        login(userData); // Save full user object
+        localStorage.setItem("username", username); // Keep legacy string for safety if needed
         setUsername(""); // Clear the input fields
         setPassword("");
         setErrorMessage(""); // Clear any previous error messages
@@ -35,52 +40,58 @@ const Login = () => {
   };
 
   return (
-    <section className="flex items-center justify-center min-h-screen mt-28">
-      <div className="outer flex flex-col items-center justify-center">
-        <div className="section-login flex-col md:p-8 mb-40">
-          <h2 className="text-5xl font-bold text-center text-gray-700 mb-20">Login</h2>
-          {errorMessage && (
-            <div className="text-red-500 text-center mb-4">
-              {errorMessage}
-            </div>
-          )}
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col">
-              <label htmlFor="username" className="text-sm font-medium text-gray-600">
-                Username
-              </label>
-              <input
-                type="text"
-                id="username"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="mt-1 w-[450px] px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="password" className="text-sm font-medium text-gray-600">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-md shadow-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300"
-            >
-              Login
-            </button>
-          </form>
-        </div>
+    <section className="flex items-center justify-center min-h-[80vh]">
+      <div className="w-full max-w-md bg-white/80 backdrop-blur-md rounded-3xl shadow-xl border border-white/50 p-8 transform transition-all hover:scale-[1.01]">
+        <h2 className="text-4xl font-bold text-center text-dark mb-8">Welcome Back</h2>
+
+        {errorMessage && (
+          <div className="bg-red-50 text-red-500 text-center p-3 rounded-lg mb-6 text-sm border border-red-100">
+            {errorMessage}
+          </div>
+        )}
+
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="username" className="text-sm font-semibold text-gray-600 ml-1">
+              Username
+            </label>
+            <input
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            />
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="password" className="text-sm font-semibold text-gray-600 ml-1">
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-3.5 bg-gradient-to-r from-primary to-yellow-300 text-dark font-bold text-lg rounded-xl shadow-lg hover:shadow-xl transform active:scale-95 transition-all duration-200 mt-4"
+          >
+            Login
+          </button>
+        </form>
+
+        <p className="text-center mt-6 text-gray-500 text-sm">
+          Don't have an account? <span className="text-teal-500 font-bold cursor-pointer hover:underline" onClick={() => navigate('/register')}>Sign Up</span>
+        </p>
       </div>
     </section>
   );

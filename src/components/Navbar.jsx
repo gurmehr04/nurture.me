@@ -1,98 +1,88 @@
 import React, { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { styles } from '../style';
-import { UserContext } from '../context/UserContext'; // Import UserContext
-
-
+import { UserContext } from '../context/UserContext';
 import menu from '../assets/menu.svg';
 import close from '../assets/close.svg';
 import profile from '../assets/profile-user.png';
 import { navLinks } from '../constants';
-
+import { motion } from "framer-motion";
 
 const Navbar = () => {
-    const [active, setActive] = useState('');
     const [toggle, setToggle] = useState(false);
-    const { user, logout } = useContext(UserContext); // Access user and logout function from UserContext
-    const navigate = useNavigate(); // For navigation on logout
+    const { user, logout } = useContext(UserContext);
+    const navigate = useNavigate();
     const location = useLocation();
 
     const handleLogout = () => {
-        logout(); // Call the logout function
-        navigate('/'); // Redirect to home after logout
+        logout();
+        navigate('/');
     };
 
+    const isActive = (path) => location.pathname === path;
+
     return (
-        <nav className={`${styles.paddingX} w-full flex items-center py-7 sticky top-0 z-50 bg-[#222222]`}>
-            <div className="w-full flex justify-between items-center max-w-7xl mx-auto">
+        <motion.nav
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className={`w-full flex items-center py-5 fixed top-0 z-50 bg-[#222222]/90 backdrop-blur-lg border-b border-white/10 shadow-lg`}
+        >
+            <div className="w-full flex justify-between items-center max-w-[1200px] mx-auto px-4">
                 <Link
                     to="/"
                     className="flex items-center gap-2"
                     onClick={() => {
-                        setActive('');
                         window.scrollTo(0, 0);
                     }}
                 >
-                    <p className="text-white text-[25px] font-bold cursor-pointer">
-                        Nurture<span className="text-[#ffec95]">.Me</span>
+                    <p className="text-white text-[25px] font-bold cursor-pointer tracking-wide">
+                        Nurture<span className="text-primary">.Me</span>
                     </p>
                 </Link>
 
                 <ul className="list-none hidden sm:flex flex-row gap-10">
-                    {/* Render nav links */}
                     {navLinks.map((link) => (
                         <li
                             key={link.id}
-                            className={`${active === link.title ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
-                                } text-[20px] font-medium cursor-pointer`}
-                            onClick={() => setActive(link.title)}
+                            className={`${isActive(link.path) ? 'text-primary' : 'text-gray-300 hover:text-white'} text-[18px] font-medium cursor-pointer transition-colors duration-200`}
                         >
                             <Link to={link.path}>{link.title}</Link>
                         </li>
                     ))}
+
                     <li
-                        key="predict"
-                        className={`${active === 'Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'} text-[20px] font-medium cursor-pointer`}
-                        onClick={() => setActive('Predict')}
+                        className={`${isActive('/write-predict') ? 'text-primary' : 'text-gray-300 hover:text-white'} text-[18px] font-medium cursor-pointer transition-colors duration-200`}
                     >
-                        <Link to="/predict">Predict</Link>
-                    </li>
-                    <li
-                        key="write-predict"
-                        className={`${active === 'Write & Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
-                            } text-[20px] font-medium cursor-pointer`}
-                        onClick={() => setActive('Write & Predict')}
-                    >
-                        <Link to="/write-predict">Write & Predict</Link>
+                        <Link to="/write-predict">Journal</Link>
                     </li>
 
-                    {/* Conditionally show Profile and Logout if user is logged in */}
+                    {/* Profile & Logout */}
                     {user ? (
                         <>
-                            <li key="profile" onClick={() => setActive('profile')}>
+                            <li className={`${isActive('/profile') ? 'border-primary' : 'border-transparent'} border-2 rounded-full p-0.5 transition-all`}>
                                 <Link to="/profile">
                                     <img
                                         src={profile}
                                         alt="Profile"
-                                        className="w-8 object-contain cursor-pointer"
+                                        className="w-8 h-8 object-contain cursor-pointer"
                                     />
                                 </Link>
                             </li>
                             <li>
                                 <button
                                     onClick={handleLogout}
-                                    className="text-white bg-red-500 px-4 py-2 rounded-md cursor-pointer"
+                                    className="text-white bg-red-500/80 hover:bg-red-600 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
                                 >
                                     Logout
                                 </button>
                             </li>
                         </>
                     ) : (
-                        // Show Login link if user is not logged in
                         <li>
                             <Link
-                                to="/Login"
-                                className="text-white text-[20px] font-medium cursor-pointer"
+                                to="/login"
+                                className="bg-primary text-dark font-semibold px-6 py-2 rounded-full hover:bg-yellow-300 transition-all shadow-md"
                             >
                                 Login
                             </Link>
@@ -101,84 +91,57 @@ const Navbar = () => {
                 </ul>
             </div>
 
-            {/* Mobile view menu */}
+            {/* Mobile Menu */}
             <div className="sm:hidden flex flex-1 justify-end items-center">
                 <img
                     src={toggle ? menu : close}
                     alt="Menu"
-                    className="w-19 h-19 object-contain cursor-pointer"
-                    onClick={() => {
-                        setToggle(!toggle);
-                    }}
+                    className="w-8 h-8 object-contain cursor-pointer contrast-125"
+                    onClick={() => setToggle(!toggle)}
                 />
                 <div
-                    className={`${toggle ? 'hidden' : 'flex'
-                        } p-6 black-gradient absolute top-20 right-0 mx-4 my-2 min-w-[140px] z-10 rounded-xl`}
+                    className={`${!toggle ? 'hidden' : 'flex'} p-6 bg-dark/95 backdrop-blur-xl absolute top-20 right-0 mx-4 my-2 min-w-[200px] z-10 rounded-2xl border border-white/10 shadow-2xl`}
                 >
-                    <ul className="list-none flex sm:flex justify-end items-start flex-col gap-4">
-                        {/* Render nav links */}
+                    <ul className="list-none flex justify-end items-start flex-col gap-6 w-full">
                         {navLinks.map((link) => (
                             <li
                                 key={link.id}
-                                className={`${active === link.title ? 'text-[#ffed2c]' : 'text-[#000000]'
-                                    } text-[18px] font-medium cursor-pointer`}
-                                onClick={() => {
-                                    setActive(link.title);
-                                    setToggle(!toggle);
-                                }}
+                                className={`${isActive(link.path) ? 'text-primary' : 'text-white'} text-[18px] font-medium cursor-pointer w-full`}
+                                onClick={() => setToggle(false)}
                             >
                                 <Link to={link.path}>{link.title}</Link>
                             </li>
                         ))}
 
                         <li
-                            key="predict"
-                            className={`${active === 'Predict' ? 'text-[#ffed2c]' : 'text-[#000000]'} text-[18px] font-medium cursor-pointer`}
-                            onClick={() => {
-                                setActive('Predict');
-                                setToggle(false);  // close the drawer after click
-                            }}
+                            className={`${isActive('/write-predict') ? 'text-primary' : 'text-white'} text-[18px] font-medium cursor-pointer`}
+                            onClick={() => setToggle(false)}
                         >
-                            <Link to="/predict">Predict</Link>
-                        </li>
-                        <li
-                            key="write-predict"
-                            className={`${active === 'Write & Predict' ? 'text-[#ffed2c]' : 'text-[#fff6d4]'
-                                } text-[20px] font-medium cursor-pointer`}
-                            onClick={() => setActive('Write & Predict')}
-                        >
-                            <Link to="/write-predict">Write & Predict</Link>
+                            <Link to="/write-predict">Journal</Link>
                         </li>
 
-
-                        {/* Conditionally show Profile and Logout if user is logged in */}
                         {user ? (
                             <>
-                                <li key="profile" onClick={() => setActive('profile')}>
-                                    <Link to="/profile">
-                                        <img
-                                            src={profile}
-                                            alt="Profile"
-                                            className="w-8 object-contain cursor-pointer"
-                                        />
+                                <li onClick={() => setToggle(false)}>
+                                    <Link to="/profile" className="flex items-center gap-2 text-white">
+                                        <img src={profile} alt="Profile" className="w-6 h-6" /> Profile
                                     </Link>
                                 </li>
-                                <li>
+                                <li className="w-full">
                                     <button
-                                        onClick={handleLogout}
-                                        className="text-white bg-red-500 px-4 py-2 rounded-md cursor-pointer"
+                                        onClick={() => { handleLogout(); setToggle(false); }}
+                                        className="text-white bg-red-500 w-full py-2 rounded-lg"
                                     >
                                         Logout
                                     </button>
                                 </li>
                             </>
                         ) : (
-                            // Show Login link if user is not logged in
-                            <li>
+                            <li className="w-full">
                                 <Link
-                                    to="/Login"
-                                    className="text-black text-[18px] font-medium cursor-pointer"
-                                    onClick={() => setToggle(!toggle)}
+                                    to="/login"
+                                    className="block text-center bg-primary text-dark font-bold py-2 rounded-lg w-full"
+                                    onClick={() => setToggle(false)}
                                 >
                                     Login
                                 </Link>
@@ -187,7 +150,7 @@ const Navbar = () => {
                     </ul>
                 </div>
             </div>
-        </nav>
+        </motion.nav>
     );
 };
 

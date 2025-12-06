@@ -40,35 +40,70 @@ function Chat() {
   };
 
   return (
-    <div className="p-6 border rounded shadow-lg mt-28">
-      <h2 className="text-2xl font-semibold mb-4">Live Chat</h2>
-      <p className="text-gray-500 mb-2">Your Chat ID: {chatId}</p> {/* Display Chat ID */}
-      <div className="h-64 overflow-y-scroll border p-2 mb-4">
+    <div className="flex flex-col h-[600px] w-full max-w-3xl mx-auto bg-white rounded-3xl shadow-card overflow-hidden border border-white/50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-primary to-yellow-300 p-6 shadow-md z-10 flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-dark tracking-wide">Live Support</h2>
+          <p className="text-dark/70 text-xs font-mono mt-1">Chat ID: {chatId}</p>
+        </div>
+        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+      </div>
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-6">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl">👋</div>
+            <p>Start a conversation with us!</p>
+          </div>
+        )}
         {messages.map((msg, index) => (
-          <p
+          <div
             key={index}
-            className={`p-2 my-2 rounded ${
-              msg.sender === "admin" ? "bg-blue-100" : "bg-gray-100"
-            }`}
+            className={`flex w-full ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
           >
-            {msg.message}{" "}
-            <span className="text-xs text-gray-500">({msg.sender})</span>
-          </p>
+            <div
+              className={`relative max-w-[80%] px-6 py-4 shadow-sm text-sm leading-relaxed transition-all duration-200 ${msg.sender === "user"
+                ? "bg-secondary text-white rounded-2xl rounded-br-none"
+                : "bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-bl-none"
+                }`}
+            >
+              <p className="text-[15px]">{msg.message}</p>
+              <div className={`text-[10px] mt-1.5 font-bold uppercase tracking-wide opacity-70 ${msg.sender === "user" ? "text-right text-teal-100" : "text-left text-gray-400"
+                }`}>
+                {msg.sender === "user" ? "You" : "Support"}
+              </div>
+            </div>
+          </div>
         ))}
       </div>
-      <input
-        type="text"
-        value={newMessage}
-        onChange={(e) => setNewMessage(e.target.value)}
-        placeholder="Type your message..."
-        className="border w-full p-2"
-      />
-      <button
-        onClick={sendMessage}
-        className="mt-2 bg-green-500 text-white px-4 py-2"
-      >
-        Send
-      </button>
+
+      {/* Input Area */}
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-full border border-gray-200 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all duration-300">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Type your message..."
+            className="flex-1 bg-transparent border-none outline-none px-4 text-gray-700 placeholder-gray-400"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!newMessage.trim()}
+            className={`p-3 rounded-full shadow-lg transition-all duration-200 ${newMessage.trim()
+              ? "bg-blue-500 hover:bg-blue-600 text-white hover:scale-105 active:scale-95"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 pl-0.5">
+              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

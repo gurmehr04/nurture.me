@@ -1,46 +1,43 @@
-import { useState, useEffect, useContext } from 'react';
+
+import { useState, useEffect, useContext, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import PProfile from './components/Profile';
-import Profile from './components/PrivateProfile';
+import PrivateProfile from './components/PrivateProfile'; // Maintaining original import name
 import bgHero from './assets/bg-hero4.jpg';
 import { userActivities, publicProfileData, privateProfileData } from './constants';
-import ProgressOverview from './components/ProgressiveOverview';
+// import ProgressOverview from './components/ProgressiveOverview';
 import axios from 'axios';
-import Register from './components/Register';
-import Forum from './components/Forum';
-import Chat from './components/Chat';
-import Admin from './components/AdminPage';
 import "./UnityViewer.css";
-import Login from './components/Login';
-import BreathingTiles from './components/BreathingTiles';
-import EndlessRunner from './components/EndlessRunner';
-import WorkoutWheel from './components/WorkoutWheel';
-import ShooterGame from './components/ShooterGame';
-import MiniGames from './components/MiniGames';
-import MentalHealthCheck from './components/MentalHealthCheck';
 import { UserProvider, UserContext } from "./context/UserContext";
-import WritePredictPage from "./pages/WritePredictPage";
+import PageWrapper from './components/PageWrapper';
+// import Loader from './components/Loader'; // Removed 3D Loader
 
-function App() {
-  const [count, setCount] = useState(0);
+// Lazy loaded components
+const Register = lazy(() => import('./components/Register'));
+const Forum = lazy(() => import('./components/Forum'));
+const Chat = lazy(() => import('./components/Chat'));
+const Admin = lazy(() => import('./components/AdminPage'));
+const AdminLogin = lazy(() => import('./components/AdminLogin'));
+const Login = lazy(() => import('./components/Login'));
+const BreathingTiles = lazy(() => import('./components/BreathingTiles'));
+const EndlessRunner = lazy(() => import('./components/EndlessRunner'));
+const WorkoutWheel = lazy(() => import('./components/WorkoutWheel'));
+const ShooterGame = lazy(() => import('./components/ShooterGame'));
+const MiniGames = lazy(() => import('./components/MiniGames'));
+const MentalHealthCheck = lazy(() => import('./components/MentalHealthCheck'));
+const WritePredictPage = lazy(() => import('./pages/WritePredictPage'));
 
-  const fetchAPI = async () => {
-    const response = await axios.get("http://localhost:8080/api");
-    console.log(response.data.fruits);
-  };
-
-  useEffect(() => {
-    fetchAPI();
-  }, []);
+const AnimatedRoutes = () => {
+  const location = useLocation();
 
   // Protected route wrapper
   const ProtectedRoute = ({ children }) => {
     const { user } = useContext(UserContext);
 
     // Retrieve saved route from localStorage
-    const location = useLocation();
     const savedPath = localStorage.getItem('currentPath');
 
     useEffect(() => {
@@ -50,10 +47,14 @@ function App() {
     }, [location.pathname]);
 
     if (!user) {
-      return <Navigate to="/Login" />;
+      return <Navigate to="/login" />;
     }
 
-    return children;
+    return (
+      <PageWrapper>
+        {children}
+      </PageWrapper>
+    );
   };
 
   // Public route wrapper for login
@@ -78,25 +79,39 @@ function App() {
   }, []);
 
   return (
-    <UserProvider>
-      <BrowserRouter>
-        <Navbar />
+    <Suspense fallback={
+      <div className="flex justify-center items-center h-screen bg-[#fff6d4]">
+        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
 
-        <Routes>
+          <Route path="/predict" element={
+            <PageWrapper>
+              <MentalHealthCheck />
+            </PageWrapper>
+          } />
+          <Route path="/write-predict" element={
+            <PageWrapper>
+              <WritePredictPage />
+            </PageWrapper>
+          } />
 
-          <Route path="/predict" element={<MentalHealthCheck />} />
-          <Route path="/write-predict" element={<WritePredictPage />} />
 
-
-          {/* Home page */}
+          {/* Home page - Hero is not lazy loaded to prevent LCP issues */}
           <Route path="/" element={<Hero />} />
 
           {/* Register page */}
-          <Route path="/Register" element={<Register />} />
+          <Route path="/register" element={
+            <PageWrapper>
+              <Register />
+            </PageWrapper>
+          } />
 
           {/* Forum - protected */}
           <Route
-            path="/Forum"
+            path="/forum"
             element={
               <ProtectedRoute>
                 <Forum />
@@ -106,7 +121,7 @@ function App() {
 
           {/* Chat - protected */}
           <Route
-            path="/Chat"
+            path="/chat"
             element={
               <ProtectedRoute>
                 <Chat />
@@ -114,9 +129,16 @@ function App() {
             }
           />
 
+          {/* Admin Login - public */}
+          <Route path="/admin-login" element={
+            <PageWrapper>
+              <AdminLogin />
+            </PageWrapper>
+          } />
+
           {/* Admin - protected */}
           <Route
-            path="/Admin"
+            path="/admin"
             element={
               <ProtectedRoute>
                 <Admin />
@@ -126,7 +148,7 @@ function App() {
 
           {/* Login - public */}
           <Route
-            path="/Login"
+            path="/login"
             element={
               <PublicRoute>
                 <Login />
@@ -135,40 +157,48 @@ function App() {
           />
 
           {/* Mini-games - always accessible */}
-          <Route path="/Mini-games" element={<MiniGames />} />
+          <Route path="/mini-games" element={
+            <PageWrapper>
+              <MiniGames />
+            </PageWrapper>
+          } />
 
           {/* Private Profile - protected */}
           <Route
             path="/profile"
             element={
               <ProtectedRoute>
-                <Profile />
+                <PrivateProfile />
               </ProtectedRoute>
             }
           />
         </Routes>
+      </AnimatePresence>
+    </Suspense>
+  );
+};
 
-        {/* <ProgressOverview /> */}
+function App() {
+  const [count, setCount] = useState(0);
 
-        {/* <Profile
-          name={publicProfileData.name}
-          university={publicProfileData.university}
-          bio={publicProfileData.bio}
-          posts={publicProfileData.posts}
-          followers={publicProfileData.followers}
-          following={publicProfileData.following}
-          activities={publicProfileData.activities}
-        />
-        <PrivateProfile
-          name={privateProfileData.name}
-          university={privateProfileData.university}
-          photo={privateProfileData.photo}
-          height={privateProfileData.height}
-          weight={privateProfileData.weight}
-          mood={privateProfileData.mood}
-          habits={privateProfileData.habits}
-          suggestions={privateProfileData.suggestions}
-        /> */}
+  const fetchAPI = async () => {
+    try {
+      const response = await axios.get("http://localhost:8080/api");
+      console.log(response.data.fruits);
+    } catch (error) {
+      console.error("API fetch error:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAPI();
+  }, []);
+
+  return (
+    <UserProvider>
+      <BrowserRouter>
+        <Navbar />
+        <AnimatedRoutes />
       </BrowserRouter>
     </UserProvider>
   );
