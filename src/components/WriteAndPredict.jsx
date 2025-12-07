@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
-import { predictTextSentiment } from "../api/nurture";
+import { useState, useMemo, useEffect, useContext } from "react";
+import { analyzeWellness, sendFeedback, saveMood } from "../api/nurture";
 import { motion, AnimatePresence } from "framer-motion";
+import { UserContext } from "../context/UserContext";
 
 // --- Configuration ---
 const PROMPTS = [
@@ -64,7 +65,7 @@ const MoodOrb = ({ emotion, label, busy }) => {
       >
         {busy ? "🌪️" :
           emotion === "joy" || label === "positive" ? "✨" :
-            emotion === "sadness" ? "💧" :
+            emotion === "sadness" || label === "Negative" ? "💧" :
               emotion === "anger" ? "🔥" :
                 emotion === "anxiety" ? "〰️" :
                   emotion === "relief" ? "🍃" :
@@ -117,10 +118,16 @@ const suggestionsByEmotion = {
 
 // --- Main Component ---
 export default function WriteAndPredict() {
+  const { user } = useContext(UserContext);
   const [text, setText] = useState("");
+  const [sleep, setSleep] = useState("");
+  const [water, setWater] = useState("");
+  const [activity, setActivity] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [promptIdx, setPromptIdx] = useState(0);
+  const [likedItems, setLikedItems] = useState({});
+  const [consent, setConsent] = useState(false);
 
   // Rotate prompts every 10s
   useEffect(() => {
@@ -130,7 +137,7 @@ export default function WriteAndPredict() {
     return () => clearInterval(interval);
   }, []);
 
-  const canSubmit = text.trim().length >= 3 && !busy;
+  const canSubmit = (text.trim().length >= 3 || (sleep && water && activity)) && !busy && consent;
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -142,12 +149,83 @@ export default function WriteAndPredict() {
     await new Promise(r => setTimeout(r, 800));
 
     try {
-      const res = await predictTextSentiment(text.trim());
-      setResult(res);
+      // Collect metrics if present
+      const payload = {
+        username: user?.username || "Guest",
+        text: text.trim(),
+        ...(sleep && { sleep_hours: parseFloat(sleep) }),
+        ...(water && { water_intake: parseFloat(water) }),
+        ...(activity && { physical_activity: parseFloat(activity) }),
+      };
+
+      const res = await analyzeWellness(payload);
+
+      // Map API result to UI format
+      const sentLabel = res.sentiment?.sentiment_label || "Neutral";
+      const sentScore = res.sentiment?.sentiment_score || 0;
+      const stressLvl = res.stress?.stress_level; // 0, 1, 2
+      const personalized = res.stress?.personalized_recommendations || [];
+
+      // Map sentiment to emotion for Orb
+      let emotion = "neutral";
+      if (sentLabel === "Positive") emotion = "joy";
+      if (sentLabel === "Negative") emotion = "sadness";
+      if (stressLvl === 2) emotion = "anxiety"; // Override if high stress
+
+      let summary = "Analysis Complete.";
+      if (res.sentiment && !res.stress) summary = `We detected a ${sentLabel.toLowerCase()} tone.`;
+      if (res.stress) {
+        const levels = ["Low", "Moderate", "High (Burnout Risk)"];
+        summary = `Stress Level: ${levels[stressLvl] || "Unknown"}. ${sentLabel === "Negative" ? "Take a break, you might be burning out." : "Keep monitoring your health."}`;
+      }
+
+      setResult({
+        label: sentLabel,
+        emotion_detected: emotion,
+        summary: summary,
+        stress_level: stressLvl,
+        recommendations: personalized
+      });
+
+      // --- MOOD TRACKING PERSISTENCE ---
+      // Auto-save the mood if user is logged in
+      if (user && user.username) {
+        try {
+          await saveMood(user.username, {
+            mood: emotion,
+            sentiment_score: sentScore,
+            stress_level: stressLvl,
+            date: new Date().toISOString().split("T")[0]
+          });
+          console.log("Mood persisted to history.");
+        } catch (saveErr) {
+          console.error("Failed to save mood history", saveErr);
+        }
+      }
+
     } catch (err) {
       console.error(err);
+      setResult({
+        label: "Error",
+        emotion_detected: "neutral",
+        summary: "Could not analyze. Please try again."
+      });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleFeedback = async (item) => {
+    if (likedItems[item.id]) return; // Already liked
+    try {
+      await sendFeedback({
+        user_id: "current_user", // Placeholder, ideally get from Auth context
+        item_id: item.id,
+        feedback: 1
+      });
+      setLikedItems(prev => ({ ...prev, [item.id]: true }));
+    } catch (e) {
+      console.error("Feedback failed", e);
     }
   };
 
@@ -197,7 +275,7 @@ export default function WriteAndPredict() {
 
           <form onSubmit={submit} className="relative z-10 p-4">
             <textarea
-              className="w-full min-h-[200px] bg-transparent resize-none outline-none text-gray-700 text-lg placeholder-gray-400/70 leading-relaxed font-medium"
+              className="w-full min-h-[150px] bg-transparent resize-none outline-none text-gray-700 text-lg placeholder-gray-400/70 leading-relaxed font-medium"
               placeholder="Start writing..."
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -208,6 +286,44 @@ export default function WriteAndPredict() {
                 paddingTop: "6px"
               }}
             />
+
+            {/* Stress Metrics Inputs */}
+            <div className="grid grid-cols-3 gap-2 mt-4 mb-2">
+              <input
+                type="number"
+                placeholder="Sleep (hrs)"
+                value={sleep}
+                onChange={e => setSleep(e.target.value)}
+                className="p-2 rounded-xl bg-white/50 border border-gray-200 text-sm outline-none focus:border-[#33CEC5]"
+              />
+              <input
+                type="number"
+                placeholder="Water (L)"
+                value={water}
+                onChange={e => setWater(e.target.value)}
+                className="p-2 rounded-xl bg-white/50 border border-gray-200 text-sm outline-none focus:border-[#33CEC5]"
+              />
+              <input
+                type="number"
+                placeholder="Activity (hrs)"
+                value={activity}
+                onChange={e => setActivity(e.target.value)}
+                className="p-2 rounded-xl bg-white/50 border border-gray-200 text-sm outline-none focus:border-[#33CEC5]"
+              />
+            </div>
+
+            <div className="flex items-start gap-2 mt-4 px-1">
+              <input
+                type="checkbox"
+                id="consent"
+                checked={consent}
+                onChange={e => setConsent(e.target.checked)}
+                className="mt-1 w-4 h-4 text-[#33CEC5] border-gray-300 rounded focus:ring-[#33CEC5]"
+              />
+              <label htmlFor="consent" className="text-xs text-gray-500 cursor-pointer select-none">
+                I consent to the analysis of my journal and health data. I understand this is an AI tool and not a substitute for professional medical advice.
+              </label>
+            </div>
 
             <div className="flex justify-between items-center mt-4 border-t border-gray-100 pt-3">
               <div className="text-xs text-gray-400 font-medium pl-1">
@@ -259,8 +375,8 @@ export default function WriteAndPredict() {
                       </p>
                     </div>
 
-                    {/* Suggestion Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Standard Suggestions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                       {currentTips.map((tip, i) => (
                         <motion.div
                           key={i}
@@ -277,6 +393,37 @@ export default function WriteAndPredict() {
                         </motion.div>
                       ))}
                     </div>
+
+                    {/* Personalized Recommendations */}
+                    {result.recommendations && result.recommendations.length > 0 && (
+                      <div className="bg-gradient-to-br from-[#E0F7FA] to-[#E3F2FD] p-6 rounded-3xl shadow-inner mb-6">
+                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                          <span>🤖</span> Personalized For You
+                        </h3>
+                        <div className="space-y-3">
+                          {result.recommendations.map((rec) => (
+                            <div key={rec.id} className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+                              <div>
+                                <h4 className="font-semibold text-gray-800">{rec.title}</h4>
+                                <div className="flex gap-2 mt-1">
+                                  {rec.tags.map(t => (
+                                    <span key={t} className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">#{t}</span>
+                                  ))}
+                                  {rec.minutes && <span className="text-xs bg-blue-50 px-2 py-1 rounded-full text-blue-500">{rec.minutes} min</span>}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleFeedback(rec)}
+                                disabled={likedItems[rec.id]}
+                                className={`p-2 rounded-full transition-colors ${likedItems[rec.id] ? 'bg-green-100 text-green-600' : 'bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-red-400'}`}
+                              >
+                                {likedItems[rec.id] ? '❤️' : '♡'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {result.label === 'crisis' && (
                       <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-800 text-sm flex items-start gap-3">

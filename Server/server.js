@@ -83,7 +83,10 @@ const profileSchema = new mongoose.Schema({
         date: { type: String }, // Format: YYYY-MM-DD
         steps: { type: Number, default: 0 },
         water: { type: Number, default: 0 },
-        sleep: { type: Number, default: 0 }
+        sleep: { type: Number, default: 0 },
+        mood: { type: String },
+        sentiment_score: { type: Number },
+        stress_level: { type: Number }
       }
     ],
     default: []
@@ -92,6 +95,58 @@ const profileSchema = new mongoose.Schema({
 
 // Create the Profile model
 const Profile = mongoose.model("Profile", profileSchema);
+
+// ... (existing moodSuggestions)
+
+// Endpoint to save mood to history
+app.post("/api/profile/:username/mood", async (req, res) => {
+  const { username } = req.params;
+  const { mood, sentiment_score, stress_level, date } = req.body;
+
+  try {
+    const today = date || new Date().toISOString().split("T")[0];
+
+    // Find profile
+    let profile = await Profile.findOne({ username });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: "Profile not found" });
+    }
+
+    // Check if entry for today exists
+    const historyIndex = profile.history.findIndex(h => h.date === today);
+
+    if (historyIndex > -1) {
+      // Update existing entry
+      profile.history[historyIndex].mood = mood;
+      profile.history[historyIndex].sentiment_score = sentiment_score;
+      profile.history[historyIndex].stress_level = stress_level;
+    } else {
+      // Append new entry
+      profile.history.push({
+        date: today,
+        mood,
+        sentiment_score,
+        stress_level,
+        steps: 0,
+        water: 0,
+        sleep: 0
+      });
+    }
+
+    // Also update current mood
+    profile.mood = mood;
+    if (profile.habits) {
+      // Logic to maybe add a habit based on mood could go here
+    }
+
+    await profile.save();
+    res.json({ success: true, message: "Mood saved successfully", history: profile.history });
+
+  } catch (error) {
+    console.error("Error saving mood:", error);
+    res.status(500).json({ success: false, message: "Error saving mood" });
+  }
+});
 
 // Create a default suggestion mapping for moods
 const moodSuggestions = {
@@ -429,6 +484,86 @@ app.get("/getQuestions", async (req, res) => {
   } catch (error) {
     console.error("Error retrieving questions:", error);
     res.status(500).json({ success: false, message: "Error retrieving questions" });
+  }
+});
+
+const axios = require("axios");
+
+// Machine Learning Proxy
+app.post("/api/ml/analyze", async (req, res) => {
+  const { text, sleep_hours, water_intake, physical_activity } = req.body;
+  const PYTHON_URL = "http://127.0.0.1:8000";
+
+  // We need a username to associate alerts with.
+  const username = req.body.username || "Anonymous";
+
+  let results = {};
+
+  try {
+    // 1. Stress Prediction
+    if (sleep_hours !== undefined || water_intake !== undefined || physical_activity !== undefined) {
+      try {
+        const stressRes = await axios.post(`${PYTHON_URL}/predict-stress`, {
+          sleep_hours: sleep_hours || 0,
+          water_intake: water_intake || 0,
+          physical_activity: physical_activity || 0
+        });
+        results.stress = stressRes.data;
+
+        // --- RISK CHECK ---
+        if (results.stress.risk_flag) {
+          console.log(`[RISK] High stress detected for ${username}`);
+          // Persist Alert
+          const newAlert = new Alert({
+            username,
+            severity: "High",
+            info: { type: "Stress", val: results.stress.stress_level }
+          });
+          await newAlert.save();
+        }
+      } catch (err) {
+        console.error("ML Service Stress Error:", err.message);
+      }
+    }
+
+    // 2. Sentiment Analysis
+    if (text) {
+      try {
+        const sentRes = await axios.post(`${PYTHON_URL}/analyze-sentiment`, { text });
+        results.sentiment = sentRes.data;
+
+        // --- RISK CHECK ---
+        if (results.sentiment.sentiment_label === "Negative") {
+          const newAlert = new Alert({
+            username,
+            severity: "Medium",
+            info: { type: "Sentiment", val: results.sentiment.sentiment_score }
+          });
+          await newAlert.save();
+        }
+      } catch (err) {
+        console.error("ML Service Sentiment Error:", err.message);
+      }
+    }
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error("Proxy Error:", error.message);
+    res.status(500).json({ success: false, message: "Error communicating with ML service" });
+  }
+});
+
+// Proxy for Feedback
+app.post("/api/ml/feedback", async (req, res) => {
+  const { user_id, item_id, feedback } = req.body;
+  const PYTHON_URL = "http://127.0.0.1:8000";
+
+  try {
+    const fbRes = await axios.post(`${PYTHON_URL}/feedback`, { user_id, item_id, feedback });
+    res.json(fbRes.data);
+  } catch (error) {
+    console.error("Feedback Error:", error.message);
+    res.status(500).json({ success: false, message: "Error submitting feedback" });
   }
 });
 

@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:server": "cd Server && npm start",
+    "start:ml": "python3 analysis/scripts/main.py",
+    "start": "concurrently \"npm run start:ml\" \"npm run start:server\" \"npm run dev\""
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",

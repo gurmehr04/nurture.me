@@ -1,0 +1,5 @@
+anxiety_level,self_esteem,mental_health_history,depression,headache,blood_pressure,sleep_quality,breathing_problem,noise_level,living_conditions,safety,basic_needs,academic_performance,study_load,teacher_student_relationship,future_career_concerns,social_support,peer_pressure,extracurricular_activities,bullying,predicted_stress_level
+21,0,1,25,5,3,0,5,5,1,1,1,1,5,1,5,0,5,0,1,2
+10,20,0,5,2,2,4,1,2,3,3,4,4,2,4,2,3,2,4,1,0
+21,0,1,25,5,3,0,5,5,1,1,1,1,5,1,5,0,5,0,1,2
+10,20,0,5,2,2,4,1,2,3,3,4,4,2,4,2,3,2,4,1,0
